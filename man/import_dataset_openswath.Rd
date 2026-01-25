@@ -7,6 +7,7 @@
 import_dataset_openswath(
   filename,
   confidence_threshold = 0.01,
+  select_unique_precursor_per_modseq = TRUE,
   return_decoys = FALSE,
   do_plot = TRUE
 )
@@ -15,6 +16,8 @@ import_dataset_openswath(
 \item{filename}{the full file path of the input file}
 
 \item{confidence_threshold}{confidence score threshold at which a peptide is considered 'identified', default: 0.01 (target value must be lesser than or equals)}
+
+\item{select_unique_precursor_per_modseq}{if multiple precursors are available for a modified sequence (eg; charge 2 and 3), should we make an effort to select the best or just return all of them ?}
 
 \item{return_decoys}{logical indicating whether to return decoy peptides. Should be set to FALSE, and if enabled, make sure to manually remove the decoys from the peptides tibble before running the quickstart function!}
 

@@ -257,6 +257,10 @@ filter_dataset = function(dataset,
   }
 
   check_dataset_integrity(dataset)
+
+  if(all(norm_algorithm == "")) {
+    append_log("no normalization algorithm specified; using peptide intensity values as-is", type = "warning")
+  }
   ##### input validation
 
 

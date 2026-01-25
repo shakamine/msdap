@@ -75,7 +75,7 @@ subset_protein_eset_for_dea = function(eset, model_matrix_result_prop, is_peptid
   # (compatible with eBayes/DEqMS/MSqRob ExpressionSets that have log2 intensities,
   #  and with MS-EmpiRe dataset with plain intensities sans log transformation that contain zeros for missing values)
   rows = rowSums(is.finite(x[,cols1,drop=FALSE]) & x[,cols1,drop=FALSE] > 0) >= min(min_values, sum(cols1)) &
-         rowSums(is.finite(x[,cols2,drop=FALSE]) & x[,cols2,drop=FALSE] > 0) >= min(min_values, sum(cols2))
+    rowSums(is.finite(x[,cols2,drop=FALSE]) & x[,cols2,drop=FALSE] > 0) >= min(min_values, sum(cols2))
 
   if(sum(rows) < 10) {
     append_log(sprintf("less than 10 %s have a non-zero value in both conditions: too little input data for DEA", ifelse(is_peptide, "peptides", "proteins")), type = "error")
@@ -121,8 +121,10 @@ subset_protein_eset_for_dea = function(eset, model_matrix_result_prop, is_peptid
 #' @param eset protein-level log2 intensity matrix stored as a Biobase ExpressionSet
 #' @param model_matrix a `stats::model.matrix()` result that is supplied to `limma::lmFit()`
 #' @param model_matrix_result_prop the column name in `model_matrix` that should be returned as the resulting coefficient estimated by `eBayes()`. In MS-DAP workflows this is typically "condition"
+#' @param ebayes_trend boolean parameter to set the `trend` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.trend = TRUE)`
+#' @param ebayes_robust boolean parameter to set the `robust` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.robust = TRUE)`
 #' @export
-de_ebayes = function(eset, model_matrix, model_matrix_result_prop) {
+de_ebayes = function(eset, model_matrix, model_matrix_result_prop, ebayes_trend = FALSE, ebayes_robust = FALSE) {
   start_time = Sys.time()
 
   # will throw an error if input data is invalid
@@ -130,8 +132,14 @@ de_ebayes = function(eset, model_matrix, model_matrix_result_prop) {
   # ensure there are at least 2 valid data points per condition / group @ model_matrix_result_prop (subset the expressionset otherwise)
   eset = subset_protein_eset_for_dea(eset, model_matrix_result_prop, is_peptide = FALSE, method_name = "eBayes")
 
+  ebayes_trend = ebayes_trend %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.trend")
+  ebayes_robust = ebayes_robust %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.robust")
+  if(ebayes_trend || ebayes_robust) {
+    append_log(sprintf("eBayes: using limma::eBayes() parameters trend=%s, robust=%s", ebayes_trend, ebayes_robust), type = "info")
+  }
+
   x = Biobase::exprs(eset)
-  fit = suppressWarnings(limma::eBayes(limma::lmFit(x, model_matrix)))
+  fit = suppressWarnings(limma::eBayes(limma::lmFit(x, model_matrix), trend = ebayes_trend, robust = ebayes_robust))
   # !! sort.by="none" keeps the output table aligned with input matrix
   result = suppressMessages(limma::topTable(fit, number = nrow(x), coef = model_matrix_result_prop, adjust.method = "fdr", sort.by = "none", confint = TRUE))
   # note; fit$coefficients and fit$stdev.unscaled matrices contain the intercept, don't use in the ES and SE computation
@@ -164,14 +172,23 @@ de_ebayes = function(eset, model_matrix, model_matrix_result_prop) {
 #' @param model_matrix a `stats::model.matrix()` result that is supplied to `limma::lmFit()`
 #' @param model_matrix_result_prop the column name in `model_matrix` that should be returned as the resulting coefficient estimated by `eBayes()`. In MS-DAP workflows this is typically "condition"
 #' @param doplot create a QC plot?
+#' @param ebayes_trend boolean parameter to set the `trend` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.trend = TRUE)`
+#' @param ebayes_robust boolean parameter to set the `robust` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.robust = TRUE)`
 #' @export
-de_deqms = function(eset, model_matrix, model_matrix_result_prop, doplot = FALSE) {
+de_deqms = function(eset, model_matrix, model_matrix_result_prop, doplot = FALSE, ebayes_trend = FALSE, ebayes_robust = FALSE) {
   start_time = Sys.time()
 
   # will throw an error if input data is invalid
   validate_eset_fitdata(eset, model_matrix, model_matrix_result_prop)
   # ensure there are at least 2 valid data points per condition / group @ model_matrix_result_prop (subset the expressionset otherwise)
   eset = subset_protein_eset_for_dea(eset, model_matrix_result_prop, is_peptide = FALSE, method_name = "DEqMS")
+
+  ebayes_trend = ebayes_trend %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.trend")
+  ebayes_robust = ebayes_robust %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.robust")
+  if(ebayes_trend || ebayes_robust) {
+    append_log(sprintf("DEqMS: using limma::eBayes() parameters trend=%s, robust=%s", ebayes_trend, ebayes_robust), type = "info")
+    append_log("DEqMS seems to ignore limma::eBayes() parameters trend and robust ; check your results with/without this setting", type = "warning")
+  }
 
   # additional input validation; DEqMS requires peptide counts
   tmp = Biobase::fData(eset)$npep
@@ -181,7 +198,7 @@ de_deqms = function(eset, model_matrix, model_matrix_result_prop, doplot = FALSE
   rm(tmp)
 
   # eBayes fit
-  fit = suppressWarnings(limma::eBayes(limma::lmFit(Biobase::exprs(eset), model_matrix)))
+  fit = suppressWarnings(limma::eBayes(limma::lmFit(Biobase::exprs(eset), model_matrix), trend = ebayes_trend, robust = ebayes_robust))
 
   ### bugfix for DEqMS::spectraCounteBayes()
   # DEqMS will Loess fit log peptide counts versus log sigma^2
@@ -228,6 +245,61 @@ de_deqms = function(eset, model_matrix, model_matrix_result_prop, doplot = FALSE
     add_column(dea_algorithm = "deqms")
 
   append_log_timestamp("DEqMS", start_time)
+  return(result)
+}
+
+
+
+#' Apply limpa
+#'
+#' ref; Li M, Cobbold SA, Smyth GK (2025). “Quantification and differential analysis of mass spectrometry proteomics data with probabilistic recovery of information from missing values.” bioRxiv, April 29 2025, 651125. doi:10.1101/2025.04.28.651125
+#' ref; https://bioconductor.org/packages/release/bioc/html/limpa.html
+#'
+#' This implementation follows the example from; https://bioconductor.org/packages/release/bioc/vignettes/limpa/inst/doc/limpa.html
+#'
+#' @param eset protein-level log2 intensity matrix stored as a Biobase ExpressionSet
+#' @param model_matrix a `stats::model.matrix()` result that is supplied to `limma::lmFit()`
+#' @param model_matrix_result_prop the column name in `model_matrix` that should be returned as the resulting coefficient estimated by `eBayes()`. In MS-DAP workflows this is typically "condition"
+#' @param doplot not implemented yet
+#' @param ebayes_trend boolean parameter to set the `trend` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.trend = TRUE)`
+#' @param ebayes_robust boolean parameter to set the `robust` parameter in `limma::eBayes()`. Default: FALSE. Alternatively, use `options(msdap.dea.ebayes.robust = TRUE)`
+#' @export
+de_limpa = function(eset, model_matrix, model_matrix_result_prop, doplot = FALSE, ebayes_trend = FALSE, ebayes_robust = FALSE) {
+  start_time = Sys.time()
+
+  # will throw an error if input data is invalid
+  validate_eset_fitdata(eset, model_matrix, model_matrix_result_prop)
+
+  ebayes_trend = ebayes_trend %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.trend")
+  ebayes_robust = ebayes_robust %in% TRUE || get_global_option_boolean("msdap.dea.ebayes.robust")
+  if(ebayes_trend || ebayes_robust) {
+    append_log(sprintf("limpa: using limma::eBayes() parameters trend=%s, robust=%s", ebayes_trend, ebayes_robust), type = "info")
+  }
+
+  mat_peptides = Biobase::exprs(eset) # log2 peptide intensity matrix, missing values are NA
+  mat_peptides__proteinid = Biobase::fData(eset)$protein_id # vector of protein identifiers
+
+  dpcfit = limpa::dpc(mat_peptides)
+  limpa_proteins = limpa::dpcQuant(mat_peptides, mat_peptides__proteinid, dpc = dpcfit)
+  fit = limpa::dpcDE(limpa_proteins, model_matrix, plot = doplot)
+  fit = limma::eBayes(fit, trend = ebayes_trend, robust = ebayes_robust) # optionally, suppressWarnings()
+
+  # !! sort.by="none" keeps the output table aligned with input matrix
+  result = suppressMessages(limma::topTable(fit, number = Inf, coef = model_matrix_result_prop, adjust.method = "fdr", sort.by = "none", confint = TRUE))
+  # note; fit$coefficients and fit$stdev.unscaled matrices contain the intercept, don't use in the ES and SE computation
+  # eBayes effect size: Cohen's d in limma, according to Gordon Smyth   https://support.bioconductor.org/p/71747/#71781
+  result$effectsize = fit$coefficients[,model_matrix_result_prop] / sqrt(fit$s2.post)
+  # eBayes standard error, according to Gordon Smyth   https://support.bioconductor.org/p/70175/
+  result$standarderror = sqrt(fit$s2.post) * fit$stdev.unscaled[,model_matrix_result_prop]
+  result$standarddeviation = sqrt(fit$s2.post)
+
+  # convert from data.frame to a tibble that follows the column names/format we expect downstream
+  result = as_tibble(result) %>%
+    mutate(protein_id = rownames(result)) %>%
+    select(protein_id, pvalue = P.Value, qvalue = adj.P.Val, foldchange.log2 = logFC, effectsize, tstatistic = t, standarddeviation, standarderror) %>%
+    add_column(dea_algorithm = "limpa")
+
+  append_log_timestamp("limpa", start_time)
   return(result)
 }
 

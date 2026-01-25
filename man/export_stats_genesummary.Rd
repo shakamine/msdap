@@ -8,6 +8,7 @@ export_stats_genesummary(
   dataset,
   gene_ambiguity = "prio_specific",
   diffdetect_zscore_threshold = NA,
+  diffdetect_log2fc_threshold = NA,
   diffdetect_type = "auto",
   dea_logfc_instead_of_effectsize = FALSE,
   output_dir = NA,
@@ -50,6 +51,8 @@ only the first 2 rows in this example are mapped (respectively, GRIA1, GRIA2, -,
 }}
 
 \item{diffdetect_zscore_threshold}{Optionally, a differential detection absolute z-score cutoff. Set to NA to disable diffdetect (default) to return only DEA results. When using this option, we strongly recommend to first review the zscore distributions using MS-DAP function: \code{plot_differential_detect()} -> double-check that your selected absolute zscore threshold cuts at intended positions in the distribution !}
+
+\item{diffdetect_log2fc_threshold}{analogous, optional threshold on log2fc for differential detection}
 
 \item{diffdetect_type}{type of differential detect scores. options:
 'auto' = set to 'detect' if this score is available, 'quant' otherwise

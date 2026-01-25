@@ -9,6 +9,23 @@ msdap_version = function() {
 
 
 
+#' get a value set using options(), throwing error for invalid type (boolean)
+#'
+#' @param x option name for `getOption()`
+#' @export
+get_global_option_boolean = function(x) {
+  value = getOption(x) # yields NULL if not set
+  if(!is.null(value)) {
+    if(length(value) != 1 || !value %in% c(TRUE, FALSE)) {
+      append_log(paste0("options setting for '", x, "' must be a boolean value"), type = "error")
+    }
+    return(value)
+  }
+  return(FALSE)
+}
+
+
+
 #' Reduce the memory footprint of ggplot objects
 #'
 #' it seems like ggplot objects retain copies of source data, which can result in out of control RAM and RData file sizes.

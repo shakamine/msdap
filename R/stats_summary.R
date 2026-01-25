@@ -14,12 +14,13 @@
 #' When including differential detection results this'll be a convenient approach to getting 1 standardized distribution of DEA+DD effectsizes that can be used in e.g. GO analyses.
 #' While this is unusual, one could e.g. use this for DEA algorithms that apply shrinkage to estimated foldchanges such as MSqRob
 #' @param diffdetect_zscore_threshold differential detect z-score cutoff. A typical value would be 5 or 6 (default)
+#' @param diffdetect_log2fc_threshold analogous a filter for DD log2fc. 0 to ignore (default)
 #' To plot histograms of the respective z-score distributions and inspect potential cutoff values for this relatively arbitrary metric, see below example code
 #' @param diffdetect_type type of differential detect scores. options:
 #' 'auto' = set to 'detect' if this score is available, 'quant' otherwise
 #' 'detect' = differential detection z-scores computed from only "detected" peptides (no MBR)
 #' 'quant' = differential detection z-scores computed from all quantified peptides (uses MBR)
-summarise_stats = function(dataset, return_dea = TRUE, return_diffdetect = FALSE, dea_logfc_as_effectsize = FALSE, diffdetect_zscore_threshold = 6, diffdetect_type = "auto") {
+summarise_stats = function(dataset, return_dea = TRUE, return_diffdetect = FALSE, dea_logfc_as_effectsize = FALSE, diffdetect_zscore_threshold = 6, diffdetect_log2fc_threshold = 0, diffdetect_type = "auto") {
   if(length(return_dea) != 1 || ! return_dea %in% c(TRUE, FALSE)) {
     append_log("return_dea must be single boolean", type = "error")
   }
@@ -59,6 +60,7 @@ summarise_stats = function(dataset, return_dea = TRUE, return_diffdetect = FALSE
         dea_algorithm = iter_algo_de,
         dea_logfc_as_effectsize = dea_logfc_as_effectsize,
         diffdetect_zscore_threshold = diffdetect_zscore_threshold,
+        diffdetect_log2fc_threshold = diffdetect_log2fc_threshold,
         diffdetect_type = diffdetect_type
       )
       if(is.null(tmp)) next
@@ -83,8 +85,9 @@ summarise_stats = function(dataset, return_dea = TRUE, return_diffdetect = FALSE
 #' @param dea_algorithm DEA algorithm as used in `dea()` upstream
 #' @param dea_logfc_as_effectsize see `summarise_stats()`
 #' @param diffdetect_zscore_threshold see `summarise_stats()`
+#' @param diffdetect_log2fc_threshold see `summarise_stats()`
 #' @param diffdetect_type see `summarise_stats()`
-summarise_stats__for_contrast = function(dataset, return_dea, return_diffdetect, contr, dea_algorithm, dea_logfc_as_effectsize, diffdetect_zscore_threshold, diffdetect_type) {
+summarise_stats__for_contrast = function(dataset, return_dea, return_diffdetect, contr, dea_algorithm, dea_logfc_as_effectsize, diffdetect_zscore_threshold, diffdetect_log2fc_threshold, diffdetect_type) {
   if(!is.list(dataset)) {
     append_log("invalid dataset", type = "error")
   }
@@ -114,6 +117,9 @@ summarise_stats__for_contrast = function(dataset, return_dea, return_diffdetect,
   }
   if(length(diffdetect_zscore_threshold) != 1 || !is.numeric(diffdetect_zscore_threshold) || !is.finite(diffdetect_zscore_threshold) || diffdetect_zscore_threshold < 0) {
     append_log("diffdetect_zscore_threshold must be a single positive numeric value", type = "error")
+  }
+  if(length(diffdetect_log2fc_threshold) != 1 || !is.numeric(diffdetect_log2fc_threshold) || !is.finite(diffdetect_log2fc_threshold) || diffdetect_log2fc_threshold < 0) {
+    append_log("diffdetect_log2fc_threshold must be a single positive numeric value", type = "error")
   }
   if(length(diffdetect_type) != 1 || ! diffdetect_type %in% c("auto", "detect", "quant")) {
     append_log("diffdetect_type must be aany of; auto, detect, quant", type = "error")
@@ -173,7 +179,7 @@ summarise_stats__for_contrast = function(dataset, return_dea, return_diffdetect,
         mutate(
           zscore_pvalue = stats::pnorm(abs(zscore), lower.tail = F),
           zscore_pvalue_adjust = p.adjust(zscore_pvalue, method = "BH"),
-          signif = abs(zscore) >= diffdetect_zscore_threshold
+          signif = abs(zscore) >= diffdetect_zscore_threshold & abs(log2fc) >= diffdetect_log2fc_threshold
         ) %>%
         arrange(desc(abs(zscore))) %>%
         select(protein_id, peptides_used_for_dd = npep_max, log2fc_dd = log2fc, effectsize_dd = zscore, pvalue_dd = zscore_pvalue, pvalue_adjust_dd = zscore_pvalue_adjust, signif_dd = signif)

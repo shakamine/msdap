@@ -391,10 +391,12 @@ ggplot_coefficient_of_variation__leave_one_out = function(tib_input, samples, sa
 #' @param tib_input todo
 #' @param samples todo
 #' @param samples_colors todo
+#' @param min_sample todo
+#' @param min_value todo
 #'
 #' @importFrom ggpubr theme_pubr
 #' @importFrom matrixStats rowSums2
-ggplot_coefficient_of_variation = function(tib_input, samples, samples_colors) {
+ggplot_coefficient_of_variation = function(tib_input, samples, samples_colors, min_sample = 3L, min_value = 3L) {
 
   ## for CoV computation, we need natural log while intensities are log2; log_b(x) = log_d(x) / log_d(b)  @  https://www.purplemath.com/modules/logrules5.htm
   # toy example; given y = log2(x=100), we need z = log10(x);
@@ -421,7 +423,7 @@ ggplot_coefficient_of_variation = function(tib_input, samples, samples_colors) {
     sid = intersect(samples %>% filter(group == grp) %>% pull(sample_id),
                     colnames(tibw_abundance_naturallog))
     # skip if <n samples in group
-    if(length(sid) < 3) {
+    if(length(sid) < min_sample) {
       dropcols = c(dropcols, grp)
       append_log(sprintf("no CoV computation for sample group '%s', require at least 3 replicates", grp), type = "info")
       next
@@ -429,10 +431,11 @@ ggplot_coefficient_of_variation = function(tib_input, samples, samples_colors) {
 
     # fast CoV computation
     m = as.matrix(tibw_abundance_naturallog %>% select(!!sid))
-    rows_fail = matrixStats::rowSums2(!is.na(m)) < 3
+    rows_fail = matrixStats::rowSums2(!is.na(m)) < min_value
     # less than 50 peptides have a value, not a meaningful set of datapoints for CoV analysis
     if(sum(!rows_fail) < 50) {
-      dropcols = c(dropcols, sid_exclude)
+      dropcols = c(dropcols, grp)
+      append_log(sprintf("no CoV computation for sample group '%s', require at least 50 peptides/proteins", grp), type = "info")
       next
     }
     # m[rows_fail, ] = NA # remove rows with less than 3 values (can technically calculate on 2 values, but we chose to require at least 3)

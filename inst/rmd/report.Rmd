@@ -250,7 +250,7 @@ if(length(l_fc_distr$tib_scores) > 0) {
   cat('\n\\newpage \n')
   cat('**top10 outliers per sample group** \n\n ')
   for(g in unique(tib_group_mean_foldchange$Group)) { # note capital G
-    rmarkdown_xtable_custom(tib_group_mean_foldchange %>% filter(Group == g) %>% tail(n=10L), caption = "sd() of within-group foldchange distributions")
+    rmarkdown_xtable_custom(tib_group_mean_foldchange %>% filter(Group == g) %>% head(n = 10L), caption = "sd() of within-group foldchange distributions")
     cat('\n\n') 
   }
 }

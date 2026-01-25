@@ -10,6 +10,7 @@ summarise_stats(
   return_diffdetect = FALSE,
   dea_logfc_as_effectsize = FALSE,
   diffdetect_zscore_threshold = 6,
+  diffdetect_log2fc_threshold = 0,
   diffdetect_type = "auto"
 )
 }
@@ -24,7 +25,9 @@ summarise_stats(
 When including differential detection results this'll be a convenient approach to getting 1 standardized distribution of DEA+DD effectsizes that can be used in e.g. GO analyses.
 While this is unusual, one could e.g. use this for DEA algorithms that apply shrinkage to estimated foldchanges such as MSqRob}
 
-\item{diffdetect_zscore_threshold}{differential detect z-score cutoff. A typical value would be 5 or 6 (default)
+\item{diffdetect_zscore_threshold}{differential detect z-score cutoff. A typical value would be 5 or 6 (default)}
+
+\item{diffdetect_log2fc_threshold}{analogous a filter for DD log2fc. 0 to ignore (default)
 To plot histograms of the respective z-score distributions and inspect potential cutoff values for this relatively arbitrary metric, see below example code}
 
 \item{diffdetect_type}{type of differential detect scores. options:

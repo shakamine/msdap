@@ -4,7 +4,13 @@
 \alias{ggplot_coefficient_of_variation}
 \title{placeholder title}
 \usage{
-ggplot_coefficient_of_variation(tib_input, samples, samples_colors)
+ggplot_coefficient_of_variation(
+  tib_input,
+  samples,
+  samples_colors,
+  min_sample = 3L,
+  min_value = 3L
+)
 }
 \arguments{
 \item{tib_input}{todo}
@@ -12,6 +18,10 @@ ggplot_coefficient_of_variation(tib_input, samples, samples_colors)
 \item{samples}{todo}
 
 \item{samples_colors}{todo}
+
+\item{min_sample}{todo}
+
+\item{min_value}{todo}
 }
 \description{
 placeholder title

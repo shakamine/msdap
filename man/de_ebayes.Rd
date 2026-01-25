@@ -4,7 +4,13 @@
 \alias{de_ebayes}
 \title{Apply limma::eBayes() function to a protein-level ExpressionSet}
 \usage{
-de_ebayes(eset, model_matrix, model_matrix_result_prop)
+de_ebayes(
+  eset,
+  model_matrix,
+  model_matrix_result_prop,
+  ebayes_trend = FALSE,
+  ebayes_robust = FALSE
+)
 }
 \arguments{
 \item{eset}{protein-level log2 intensity matrix stored as a Biobase ExpressionSet}
@@ -12,6 +18,10 @@ de_ebayes(eset, model_matrix, model_matrix_result_prop)
 \item{model_matrix}{a \code{stats::model.matrix()} result that is supplied to \code{limma::lmFit()}}
 
 \item{model_matrix_result_prop}{the column name in \code{model_matrix} that should be returned as the resulting coefficient estimated by \code{eBayes()}. In MS-DAP workflows this is typically "condition"}
+
+\item{ebayes_trend}{boolean parameter to set the \code{trend} parameter in \code{limma::eBayes()}. Default: FALSE. Alternatively, use \code{options(msdap.dea.ebayes.trend = TRUE)}}
+
+\item{ebayes_robust}{boolean parameter to set the \code{robust} parameter in \code{limma::eBayes()}. Default: FALSE. Alternatively, use \code{options(msdap.dea.ebayes.robust = TRUE)}}
 }
 \description{
 ref; PMID:25605792

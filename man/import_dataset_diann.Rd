@@ -9,6 +9,7 @@ import_dataset_diann(
   confidence_threshold = 0.01,
   use_normalized_intensities = FALSE,
   use_irt = TRUE,
+  select_unique_precursor_per_modseq = TRUE,
   do_plot = TRUE
 )
 }
@@ -20,6 +21,8 @@ import_dataset_diann(
 \item{use_normalized_intensities}{use the abundance values as-is (recommended) or those normalized by DIA-NN}
 
 \item{use_irt}{logical indicating whether to use standardized (IRT) or the empirical (RT) retention times}
+
+\item{select_unique_precursor_per_modseq}{if multiple precursors are available for a modified sequence (eg; charge 2 and 3), should we make an effort to select the best or just return all of them ?}
 
 \item{do_plot}{logical indicating whether to create QC plots that are shown in the downstream PDF report (if enabled)}
 }

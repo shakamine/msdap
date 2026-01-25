@@ -23,5 +23,7 @@ This is in line with typical usage of moderated t-statistics in proteomics (e.g.
 \strong{msqrob}: implementation of the MSqRob package, with minor tweak for (situationally) faster computation (PMID:26566788) \url{https://github.com/statOmics/msqrob}. This is a peptide-level DEA algorithm. This method will take provided covariates into account (if any). Implemented in function; \code{de_msqrobsum_msqrob}
 
 \strong{msqrobsum}: implementation of the MSqRob package (which also features MSqRobSum), with minor tweak for (situationally) faster computation (PMID:32321741) \url{https://github.com/statOmics/msqrob}. This is a hybrid peptide&protein-level DEA algorithm that takes peptide-level data as input; it first performs peptide-to-protein rollup, then applies statistics to this protein-level data matrix. This method will take provided covariates into account (if any). Implemented in function; \code{de_msqrobsum_msqrob}
+
+\strong{limpa}: implementation of the limpa package; Li M, Cobbold SA, Smyth GK (2025). “Quantification and differential analysis of mass spectrometry proteomics data with probabilistic recovery of information from missing values.” bioRxiv, April 29 2025, 651125. doi:10.1101/2025.04.28.651125
 }
 }

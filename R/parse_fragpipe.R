@@ -84,6 +84,7 @@ import_dataset_fragpipe_ionquant = function(path, acquisition_mode, confidence_t
   psm = fragpipe_modseq_compose(psm)
   # quality control: check if any samples listed in the msstats table are missing from the psm.tsv tables
   tmp = setdiff(msstats_sampleid_unique, unique(psm$sample_id))
+  # if the file names do not match, try to strip paths etc.
   if(length(tmp) > 0) {
     append_log(paste0("there is no data in any of the psm.tsv files for the following samples that are listed in MSstats.csv: ",
                       paste(tmp, collapse = ", "), "\nThis suggests your dataset is incomplete / some psm.tsv files are missing !"), type = "warning")
@@ -344,6 +345,12 @@ fragpipe_parse_msstats = function(filename) {
   x$sequence_plain = useq_plain[match(x$sequence_modified, useq)]
   x$peptide_id = paste(x$sequence_modified, x$charge, sep = "_")
 
+  # strip path from sample_id
+  ufilename = unique(x$sample_id)
+  ufilename_basename = basename(gsub("/+", "/", gsub("\\\\+", "/", ufilename))) # note the backslash syntax, R lingo to deal with "escapes"
+  ufilename_sampleid = gsub("^(interact[^a-z])|((\\.mod){0,1}\\.pep\\.xml$)", "", ufilename_basename) # FragPipe 22 update; .pep.xml files can also be mod.pep.xml
+  x$sample_id = ufilename_sampleid[match(x$sample_id, ufilename)]
+
   # enforce unique sample_id*peptide_id combinations (should not be needed, but check/enforce anyway)
   x %>% arrange(desc(intensity)) %>% distinct(sample_id, peptide_id, .keep_all = TRUE)
 }
@@ -457,7 +464,10 @@ fragpipe_parse_psm = function(filename, precursor_unique_results = "fast_min_con
   # specifically for fragpipe; strip full path + "interact-" + ".pep.xml" extension
   # example entry in input table; C:\DATA\fragpipe_test\interact-a05191.pep.xml
   ufilename = unique(x$filename)
-  ufilename_sampleid = sub("^interact[^a-z](.*)\\.pep\\.xml$", "\\1", basename(ufilename))
+  # FragPipe 22 output cannot be simply be used as input for to basename()
+  # example: "C:\\Users\\Remco\\Desktop\\20250226_kvdd_protected-phosphosites\\2_Fragpipe_22.0\\1b_LFQ-phospho_MBR\\S24_37C_15min_PhosSTOP\\interact-20250226_kvdd_protected-phosphosites_DDA_phospho_S24_S2-A12_1_4318.mod.pep.xml"
+  ufilename_basename = basename(gsub("/+", "/", gsub("\\\\+", "/", ufilename))) # note the backslash syntax, R lingo to deal with "escapes"
+  ufilename_sampleid = gsub("^(interact[^a-z])|((\\.mod){0,1}\\.pep\\.xml$)", "", ufilename_basename) # FragPipe 22 update; .pep.xml files can also be mod.pep.xml
   x$sample_id = ufilename_sampleid[match(x$filename, ufilename)]
 
 

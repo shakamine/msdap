@@ -3,7 +3,7 @@
 # MS-DAP launch script
 # https://github.com/ftwkoopmans/msdap
 
-VERSION="1.2.1"
+VERSION="1.2.3"
 
 
 ### OS

@@ -12,6 +12,7 @@ summarise_stats__for_contrast(
   dea_algorithm,
   dea_logfc_as_effectsize,
   diffdetect_zscore_threshold,
+  diffdetect_log2fc_threshold,
   diffdetect_type
 )
 }
@@ -29,6 +30,8 @@ summarise_stats__for_contrast(
 \item{dea_logfc_as_effectsize}{see \code{summarise_stats()}}
 
 \item{diffdetect_zscore_threshold}{see \code{summarise_stats()}}
+
+\item{diffdetect_log2fc_threshold}{see \code{summarise_stats()}}
 
 \item{diffdetect_type}{see \code{summarise_stats()}}
 }

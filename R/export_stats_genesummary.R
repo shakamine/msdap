@@ -92,6 +92,7 @@
 #'     only the first 2 rows in this example are mapped (respectively, GRIA1, GRIA2, -, -, -).
 #' }
 #' @param diffdetect_zscore_threshold Optionally, a differential detection absolute z-score cutoff. Set to NA to disable diffdetect (default) to return only DEA results. When using this option, we strongly recommend to first review the zscore distributions using MS-DAP function: `plot_differential_detect()` -> double-check that your selected absolute zscore threshold cuts at intended positions in the distribution !
+#' @param diffdetect_log2fc_threshold analogous, optional threshold on log2fc for differential detection
 #' @param diffdetect_type type of differential detect scores. options:
 #' 'auto' = set to 'detect' if this score is available, 'quant' otherwise
 #' 'detect' = differential detection z-scores computed from only "detected" peptides (no MBR)
@@ -133,7 +134,7 @@
 #' \item 'gene' same as the 'entrez_id' column. Provided for drag-and-drop compatibility with the GOAT online tool
 #' }
 #' @export
-export_stats_genesummary = function(dataset, gene_ambiguity = "prio_specific", diffdetect_zscore_threshold = NA, diffdetect_type = "auto", dea_logfc_instead_of_effectsize = FALSE, output_dir = NA, hgnc, xref = NULL, remove_nohgnc = FALSE) {
+export_stats_genesummary = function(dataset, gene_ambiguity = "prio_specific", diffdetect_zscore_threshold = NA, diffdetect_log2fc_threshold = NA, diffdetect_type = "auto", dea_logfc_instead_of_effectsize = FALSE, output_dir = NA, hgnc, xref = NULL, remove_nohgnc = FALSE) {
   result = NULL
 
   ### input validation
@@ -146,8 +147,11 @@ export_stats_genesummary = function(dataset, gene_ambiguity = "prio_specific", d
   if(!(length(gene_ambiguity) == 1 && all(gene_ambiguity %in% c("leading_gene", "prio_specific", "only_specific")))) {
     append_log("gene_ambiguity parameter should be 1 of the following options: leading_gene, prio_specific, only_specific", type = "error")
   }
-  if(!(length(diffdetect_zscore_threshold) == 1 && (is.na(diffdetect_zscore_threshold) || (is.numeric(diffdetect_zscore_threshold) && is.finite(diffdetect_zscore_threshold) && diffdetect_zscore_threshold > 0)))) {
+  if(!(length(diffdetect_zscore_threshold) == 1 && (is.na(diffdetect_zscore_threshold) || (is.numeric(diffdetect_zscore_threshold) && is.finite(diffdetect_zscore_threshold) && diffdetect_zscore_threshold >= 0)))) {
     append_log("diffdetect_zscore_threshold parameter should be either NA (to disable) or a positive number", type = "error")
+  }
+  if(!(length(diffdetect_log2fc_threshold) == 1 && (is.na(diffdetect_log2fc_threshold) || (is.numeric(diffdetect_log2fc_threshold) && is.finite(diffdetect_log2fc_threshold) && diffdetect_log2fc_threshold >= 0)))) {
+    append_log("diffdetect_log2fc_threshold parameter should be either NA (to disable) or a positive number", type = "error")
   }
   if(!(length(dea_logfc_instead_of_effectsize) == 1 && dea_logfc_instead_of_effectsize %in% c(TRUE, FALSE))) {
     append_log("dea_logfc_instead_of_effectsize parameter should be TRUE or FALSE", type = "error")
@@ -208,9 +212,10 @@ export_stats_genesummary = function(dataset, gene_ambiguity = "prio_specific", d
   allstats = summarise_stats(
     dataset,
     return_dea = TRUE,
-    return_diffdetect = is.finite(diffdetect_zscore_threshold), # set to TRUE to integrate respective 'strong z-scores'
+    return_diffdetect = (is.finite(diffdetect_zscore_threshold) && diffdetect_zscore_threshold > 0) || (is.finite(diffdetect_log2fc_threshold) && diffdetect_log2fc_threshold > 0), # set to TRUE to integrate respective 'strong z-scores'
     dea_logfc_as_effectsize = dea_logfc_instead_of_effectsize,
     diffdetect_zscore_threshold = ifelse(is.finite(diffdetect_zscore_threshold), diffdetect_zscore_threshold, 6),
+    diffdetect_log2fc_threshold = ifelse(is.finite(diffdetect_log2fc_threshold), diffdetect_log2fc_threshold, 0), # disable by default
     diffdetect_type = diffdetect_type
   )
 

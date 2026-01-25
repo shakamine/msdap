@@ -9,8 +9,9 @@ import_dataset_spectronaut(
   confidence_threshold = 0.01,
   use_normalized_intensities = FALSE,
   use_irt = TRUE,
-  return_decoys = FALSE,
   remove_shared_spectronaut_proteingroups = FALSE,
+  select_unique_precursor_per_modseq = TRUE,
+  return_decoys = FALSE,
   do_plot = TRUE
 )
 }
@@ -23,9 +24,11 @@ import_dataset_spectronaut(
 
 \item{use_irt}{logical indicating whether to use standardized (IRT, EG.iRTEmpirical) or the empirical (EG.RTEmpirical) retention times}
 
-\item{return_decoys}{logical indicating whether to return decoy peptides. Should be set to FALSE, and if enabled, make sure to manually remove the decoys from the peptides tibble before running the quickstart function!}
-
 \item{remove_shared_spectronaut_proteingroups}{if the peptide-to-proteingroup assignments from Spectronaut are used as is (eg; you're not mapping the peptides to some spectral library downstream), you can remove peptides that map to multiple proteingroups}
+
+\item{select_unique_precursor_per_modseq}{if multiple precursors are available for a modified sequence (eg; charge 2 and 3), should we make an effort to select the best or just return all of them ?}
+
+\item{return_decoys}{logical indicating whether to return decoy peptides. Should be set to FALSE, and if enabled, make sure to manually remove the decoys from the peptides tibble before running the quickstart function!}
 
 \item{do_plot}{logical indicating whether to create QC plots that are shown in the downstream PDF report (if enabled)}
 }

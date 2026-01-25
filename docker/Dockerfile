@@ -21,7 +21,7 @@ RUN R -e "tinytex::tlmgr_install(c('ifxetex', 'ifluatex', 'oberdiek', 'graphics'
 RUN R -e "install.packages(c('archive', 'styler', 'formatR', 'pdftools', 'matrixStats', 'lme4', 'nloptr', 'pROC', 'iq', 'doParallel', 'foreach', 'missForest', 'ggpubr', 'ggrepel', 'patchwork', 'openxlsx'), repos = 'https://cloud.r-project.org')"
 
 # BioConductor R packages
-RUN R -e "BiocManager::install(c('ProtGenerics', 'MSnbase', 'limma', 'vsn', 'pcaMethods', 'DEqMS', 'BiocParallel', 'variancePartition'), update=F, ask=F)"
+RUN R -e "BiocManager::install(c('ProtGenerics', 'MSnbase', 'limma', 'vsn', 'pcaMethods', 'DEqMS', 'BiocParallel', 'variancePartition', 'limpa'), update=F, ask=F)"
 
 # GitHub R packages
 RUN R -e "devtools::install_github('zimmerlab/MS-EmpiRe', upgrade = 'never')"
@@ -33,8 +33,8 @@ RUN R -e "devtools::install_version('remaCor', '0.0.18', upgrade = 'never', repo
 ### MS-DAP
 # from local devtools::build() file
 RUN mkdir /msdap
-COPY temp/msdap_1.2.1.tar.gz /msdap/
-RUN R -e "devtools::install_local('/msdap/msdap_1.2.1.tar.gz', upgrade = 'never')"
+COPY temp/msdap_1.2.3.tar.gz /msdap/
+RUN R -e "devtools::install_local('/msdap/msdap_1.2.3.tar.gz', upgrade = 'never')"
 # alternatively, install from github; RUN R -e "devtools::install_github('ftwkoopmans/msdap@1.1', upgrade = 'never')"
 
 

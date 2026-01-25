@@ -19,9 +19,11 @@
 #'
 #' **msqrobsum**: implementation of the MSqRob package (which also features MSqRobSum), with minor tweak for (situationally) faster computation (PMID:32321741) <https://github.com/statOmics/msqrob>. This is a hybrid peptide&protein-level DEA algorithm that takes peptide-level data as input; it first performs peptide-to-protein rollup, then applies statistics to this protein-level data matrix. This method will take provided covariates into account (if any). Implemented in function; \code{de_msqrobsum_msqrob}
 #'
+#' **limpa**: implementation of the limpa package; Li M, Cobbold SA, Smyth GK (2025). “Quantification and differential analysis of mass spectrometry proteomics data with probabilistic recovery of information from missing values.” bioRxiv, April 29 2025, 651125. doi:10.1101/2025.04.28.651125
+#'
 #' @export
 dea_algorithms = function() {
-  return(c("ebayes", "deqms", "msempire", "msqrobsum", "msqrob"))
+  return(c("ebayes", "deqms", "msempire", "msqrobsum", "msqrob", "limpa"))
 }
 
 
@@ -261,6 +263,8 @@ dea = function(dataset, qval_signif = 0.01, fc_signif = 0, dea_algorithm = "deqm
           alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = TRUE, random_variables = contr$colname_additional_variables)
         } else if(alg == "msqrobsum") {
           alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = FALSE, random_variables = contr$colname_additional_variables)
+        } else if(alg == "limpa") {
+          alg_result = de_limpa(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name)
         } else {
           # for non-hardcoded functions, we call the function requested as a user parameter and pass all available data
           alg_fun = match.fun(alg) # throws error if not found
