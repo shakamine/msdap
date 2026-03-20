@@ -16,7 +16,8 @@ filter_dataset(
   rollup_algorithm = "maxlfq",
   by_group = FALSE,
   all_group = FALSE,
-  by_contrast = FALSE
+  by_contrast = FALSE,
+  groups_min_pass = NA
 )
 }
 \arguments{
@@ -43,6 +44,8 @@ filter_dataset(
 \item{all_group}{in every sample group, apply the filter. All peptides that fail the filter in any group will have intensity value NA in the intensity_all_groups column for all samples}
 
 \item{by_contrast}{should the above filters be applied to all sample groups, or only those tested within each contrast? Enabling this optimizes available data in each contrast, but increases the complexity somewhat as different subsets of peptides are used in each contrast and normalization is applied separately}
+
+\item{groups_min_pass}{minimum number of groups that must pass peptide filtering in order to retain data in the \code{all_group} and \code{by_contrast} result columns. Set to \code{NA} (default) to preserve current behavior, i.e. require all groups for \code{all_group} and both sides of each contrast for \code{by_contrast}. This has no effect on \code{by_group}, and is implemented directly in \code{filter_dataset()} (it does not call \code{dataset_filter_custom()} internally).}
 }
 \description{
 For each of the filters (by group, all groups, by contrast) an extra column will be appended to the dataset$peptides table that contains the intensity data for all peptides that pass these filters (\verb{name: intensity_<filter>}).

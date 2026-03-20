@@ -38,6 +38,31 @@ reset_log = function() {
 
 
 
+logger.silent = function(x, type = "info") {
+  if (!exists("log_")) {
+    reset_log()
+  }
+  log_[[length(log_)+1]] = c(x, type, Sys.time())
+  log_ <<- log_
+}
+
+
+
+#' Enable or disable console logging
+#'
+#' @param enable boolean value; set to FALSE to suppress console logging while retaining the internal log buffer
+#' @export
+enable_log = function(enable = TRUE) {
+  if(length(enable) != 1 || is.na(enable) || !is.logical(enable)) {
+    stop("enable parameter must be either TRUE or FALSE", call. = TRUE)
+  }
+
+  logger_msdap <<- if(enable) logger.default else logger.silent
+  invisible(enable)
+}
+
+
+
 log_type_to_color = function(type, format="hex") {
   clr = switch(type,
                error = c(red="#cc2516"),

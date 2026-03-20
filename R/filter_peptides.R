@@ -215,6 +215,7 @@ cache_filtering_data = function(dataset) {
 #' @param by_group within each sample group, apply the filter. All peptides that fail the filter in group g will have intensity value NA in the intensity_by_group column for the samples in the respective group
 #' @param all_group in every sample group, apply the filter. All peptides that fail the filter in any group will have intensity value NA in the intensity_all_groups column for all samples
 #' @param by_contrast should the above filters be applied to all sample groups, or only those tested within each contrast? Enabling this optimizes available data in each contrast, but increases the complexity somewhat as different subsets of peptides are used in each contrast and normalization is applied separately
+#' @param groups_min_pass minimum number of groups that must pass peptide filtering in order to retain data in the `all_group` and `by_contrast` result columns. Set to `NA` (default) to preserve current behavior, i.e. require all groups for `all_group` and both sides of each contrast for `by_contrast`. This has no effect on `by_group`, and is implemented directly in `filter_dataset()` (it does not call `dataset_filter_custom()` internally).
 #'
 #' @importFrom data.table data.table setDT setkey merge.data.table dcast
 #' @importFrom matrixStats rowSums2
@@ -228,7 +229,8 @@ filter_dataset = function(dataset,
                           norm_algorithm = "",
                           rollup_algorithm = "maxlfq",
                           # which filters to apply
-                          by_group = FALSE, all_group = FALSE, by_contrast = FALSE) {
+                          by_group = FALSE, all_group = FALSE, by_contrast = FALSE,
+                          groups_min_pass = NA) {
 
   start_time = Sys.time()
 
@@ -244,6 +246,9 @@ filter_dataset = function(dataset,
   }
   if(length(rollup_algorithm) != 1 || any(!is.character(rollup_algorithm))) {
     append_log("function argument 'rollup_algorithm' must be a single string (not an array)", type = "error")
+  }
+  if(length(groups_min_pass) != 1 || (!is.na(groups_min_pass) && !(is.numeric(groups_min_pass) && is.finite(groups_min_pass) && groups_min_pass >= 1))) {
+    append_log("function argument 'groups_min_pass' must be NA or a single numeric value >= 1", type = "error")
   }
 
   # there should be no decoys at this point
@@ -261,6 +266,9 @@ filter_dataset = function(dataset,
   if(all(norm_algorithm == "")) {
     append_log("no normalization algorithm specified; using peptide intensity values as-is", type = "warning")
   }
+  if(!is.na(groups_min_pass) && !is.integer(groups_min_pass)) {
+    groups_min_pass = as.integer(ceiling(groups_min_pass))
+  }
   ##### input validation
 
 
@@ -271,6 +279,7 @@ filter_dataset = function(dataset,
   # used for reporting results later on
   npep_input = n_distinct(dataset$peptides$peptide_id)
   log_stats = NULL
+  groups_min_pass_all = ifelse(is.na(groups_min_pass), nrow(dataset$groups), groups_min_pass)
 
   # remove all pre-existing filtering columns
   cols_intensity = grep("^intensity_", colnames(dataset$peptides), ignore.case = T, value=T)
@@ -334,14 +343,14 @@ filter_dataset = function(dataset,
     ## global filter; only peptides that pass each group
     # note; never ifelse large arrays, copy entire array then mask to replace values with NA (see benchmark code below)
     dataset$peptides$intensity_all_group = dataset$peptides$intensity
-    # a) we don't want intensity values for 'exclude' samples in the result. b) use `dt_filter_group_wide$ngroup` to check if a peptide passes filters in all tested peptide*samplegroup
+    # default behavior keeps the current "all groups must pass"; numeric groups_min_pass relaxes that threshold.
     i = match(dataset$peptides$key_peptide, dt_filter_group_wide_noexclude$key_peptide)
-    dataset$peptides$intensity_all_group[is.na(dataset$peptides$key_peptide_group_noexclude) | is.na(i) | dt_filter_group_wide_noexclude$ngroup[i] != nrow(dataset$groups)] <- NA
+    dataset$peptides$intensity_all_group[is.na(dataset$peptides$key_peptide_group_noexclude) | is.na(i) | dt_filter_group_wide_noexclude$ngroup[i] < groups_min_pass_all] <- NA
     # analogous
     if(any_samples_excluded) {
       dataset$peptides$intensity_all_group_withexclude = dataset$peptides$intensity
       i = match(dataset$peptides$key_peptide, dt_filter_group_wide$key_peptide)
-      dataset$peptides$intensity_all_group_withexclude[is.na(i) | dt_filter_group_wide$ngroup[i] != nrow(dataset$groups)] <- NA
+      dataset$peptides$intensity_all_group_withexclude[is.na(i) | dt_filter_group_wide$ngroup[i] < groups_min_pass_all] <- NA
       rm(i)
     }
     # log results
@@ -376,11 +385,14 @@ filter_dataset = function(dataset,
         summarise(ndetect = sum(detect), nquant = n()) %>%
         ungroup()
 
-      # subset of peptides that matches the filtering criterium in both groups
-      pepid_valid = intersect(
-        grp1_counts %>% filter(ndetect >= grp1_mindetect & nquant >= grp1_minquant) %>% pull(peptide_id),
-        grp2_counts %>% filter(ndetect >= grp2_mindetect & nquant >= grp2_minquant) %>% pull(peptide_id)
-      )
+      pepid_valid_grp1 = grp1_counts %>% filter(ndetect >= grp1_mindetect & nquant >= grp1_minquant) %>% pull(peptide_id)
+      pepid_valid_grp2 = grp2_counts %>% filter(ndetect >= grp2_mindetect & nquant >= grp2_minquant) %>% pull(peptide_id)
+      pepid_valid = if(is.na(groups_min_pass)) {
+        intersect(pepid_valid_grp1, pepid_valid_grp2)
+      } else {
+        pepid_valid_npass = table(c(pepid_valid_grp1, pepid_valid_grp2))
+        names(pepid_valid_npass)[pepid_valid_npass >= groups_min_pass]
+      }
 
 
       intensity_col_contr = paste0("intensity_", contr$label)
@@ -450,6 +462,7 @@ filter_dataset = function(dataset,
     if(filter_fraction_quant > 0) log_settings = c(log_settings, paste("fraction_quant =", filter_fraction_quant))
     if(filter_min_peptide_per_prot > 1) log_settings = c(log_settings, paste("min_peptide_per_prot =", filter_min_peptide_per_prot))
     if(filter_topn_peptides > 0) log_settings = c(log_settings, paste("topn_peptides =", filter_topn_peptides))
+    if(!is.na(groups_min_pass)) log_settings = c(log_settings, paste("groups_min_pass =", groups_min_pass))
     if(any(norm_algorithm != "")) log_settings = c(log_settings, paste0("norm_algorithm = '", paste(norm_algorithm, collapse = "&"), "'"))
     log_settings = c(log_settings, paste0("rollup_algorithm = '", rollup_algorithm, "'"))
 
