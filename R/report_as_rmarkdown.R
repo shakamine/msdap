@@ -95,8 +95,14 @@ generate_pdf_report = function(dataset, output_dir, norm_algorithm = "vwmb", rol
       }
 
       mtitle = paste0("contrast: ", contr$label_contrast)
-      if(length(contr$colname_additional_variables) > 0) {
-        mtitle = paste0(mtitle, "\nuser-specified random variables added to regression model: ", paste(contr$colname_additional_variables, collapse = ", "))
+      if(length(contr$fixed_variables) > 0) {
+        mtitle = paste0(mtitle, "\nuser-specified fixed variables: ", paste(contr$fixed_variables, collapse = ", "))
+      }
+      if(length(contr$random_variables) > 0) {
+        mtitle = paste0(mtitle, "\nuser-specified random variables: ", paste(contr$random_variables, collapse = ", "))
+      }
+      if(!is.null(contr$block_variable)) {
+        mtitle = paste0(mtitle, "\nuser-specified block variable: ", contr$block_variable)
       }
 
       # optionally, provide thresholds for foldchange and qvalue so the volcano plot draws respective lines

@@ -554,6 +554,104 @@ print_contrasts = function(dataset) {
 
 
 
+#' Validate and normalize fixed/random/block model terms
+#'
+#' @param dataset your dataset
+#' @param fixed_variables character vector of sample metadata columns used as fixed effects
+#' @param random_variables character vector of sample metadata columns used as random effects
+#' @param block_variable optional single sample metadata column used as a block variable
+validate_model_terms = function(dataset, fixed_variables = character(0), random_variables = character(0), block_variable = NULL) {
+  if(!is.list(dataset) || !"samples" %in% names(dataset) || !is.data.frame(dataset$samples)) {
+    append_log("Dataset does not contain a sample metadata table (dataset$samples)", type = "error")
+  }
+
+  normalize_term_vector = function(x, label) {
+    if(length(x) == 0 || (length(x) == 1 && is.null(x))) {
+      return(character(0))
+    }
+    if(anyNA(x) || !is.character(x)) {
+      append_log(sprintf("Invalid %s parameter: expected a character vector without NA values", label), type = "error")
+    }
+
+    x = x[x != ""]
+    if(anyDuplicated(x)) {
+      x = x[!duplicated(x)]
+    }
+    return(x)
+  }
+
+  fixed_variables = normalize_term_vector(fixed_variables, "fixed_variables")
+  random_variables = normalize_term_vector(random_variables, "random_variables")
+
+  if(length(block_variable) == 0 || (length(block_variable) == 1 && is.null(block_variable))) {
+    block_variable = NULL
+  } else if(length(block_variable) != 1 || is.na(block_variable) || !is.character(block_variable) || block_variable == "") {
+    append_log('Invalid block_variable parameter: expected NULL or a single sample metadata column name', type = "error")
+  }
+
+  valid_sample_metadata_columns = user_provided_metadata(dataset$samples)
+  unknown_columns = setdiff(c(fixed_variables, random_variables, block_variable), valid_sample_metadata_columns)
+  if(length(unknown_columns) > 0) {
+    append_log(paste0(
+      'Invalid model term(s): "',
+      paste(unknown_columns, collapse = '", "'),
+      '" do not exist in the sample metadata table. Available columns are: ',
+      paste(valid_sample_metadata_columns, collapse = ",")
+    ), type = "error")
+  }
+
+  if(!is.null(block_variable) && block_variable %in% random_variables) {
+    append_log('block_variable must not also be present in random_variables', type = "error")
+  }
+
+  return(list(
+    fixed_variables = fixed_variables,
+    random_variables = random_variables,
+    block_variable = block_variable
+  ))
+}
+
+
+
+#' Validate a block vector for one contrast
+#'
+#' @param samples sample metadata subset for one contrast
+#' @param block_variable single column name in `samples`, or NULL
+validate_block_vector = function(samples, block_variable = NULL) {
+  if(is.null(block_variable)) {
+    return(NULL)
+  }
+  stopifnot(block_variable %in% colnames(samples))
+
+  values = unlist(samples[,block_variable], recursive = FALSE, use.names = FALSE)
+  if(anyNA(values)) {
+    append_log(sprintf('Block variable "%s" contains NA values for the current contrast', block_variable), type = "error")
+  }
+
+  values_chr = as.character(values)
+  if(any(values_chr == "")) {
+    append_log(sprintf('Block variable "%s" contains empty values for the current contrast', block_variable), type = "error")
+  }
+
+  if(is.numeric(values) && !all(abs(values - round(values)) < 1e-8)) {
+    append_log(sprintf('Block variable "%s" must be discrete; continuous numeric values are not allowed', block_variable), type = "error")
+  }
+
+  if(length(unique(values_chr)) < 2) {
+    append_log(sprintf('Block variable "%s" must contain at least 2 unique levels in the current contrast', block_variable), type = "error")
+  }
+
+  value_counts = table(values_chr)
+  singleton_levels = names(value_counts)[value_counts == 1]
+  if(length(singleton_levels) > 0) {
+    append_log(sprintf('Block variable "%s" contains singleton levels for the current contrast: %s', block_variable, paste(singleton_levels, collapse = ", ")), type = "warning")
+  }
+
+  return(values_chr)
+}
+
+
+
 #' Create a contrast for differential expression analysis
 #'
 #' @description
@@ -648,10 +746,12 @@ print_contrasts = function(dataset) {
 #' @param colname_condition_variable sample metadata column name that should be used for the experimental condition. Typically, this is the "group" column. Should be any of the values in `user_provided_metadata(dataset$samples)`
 #' @param values_condition1 array of values from column `colname_condition_variable` that are the first group in the contrast. Note that
 #' @param values_condition2 analogous to `values_condition1`, but for the second group. Note that you can set this to NA to indicate "everything except values in values_condition1"
-#' @param colname_additional_variables optionally, sample metadata column names that should be used as additional regression variables (only the subset of `user_provided_metadata(dataset$samples)`, NOT including the value provided as parameter `colname_condition_variable`)
+#' @param fixed_variables optionally, sample metadata column names that should be used as fixed-effect regression variables
+#' @param random_variables optionally, sample metadata column names that should be used as random-effect variables for MSqRob / MSqRobSum
+#' @param block_variable optionally, a single sample metadata column name that should be used as block variable for limma-style models
 #' @seealso [print_contrasts()] to print an overview of defined contrasts, [remove_contrasts()] to remove all current contrasts (and respective filtering and DEA results)
 #' @export
-add_contrast = function(dataset, colname_condition_variable, values_condition1, values_condition2, colname_additional_variables = NULL) {
+add_contrast = function(dataset, colname_condition_variable, values_condition1, values_condition2, fixed_variables = character(0), random_variables = character(0), block_variable = NULL) {
   # validate dataset
   if(!is.list(dataset) || !"samples" %in% names(dataset) || !is.data.frame(dataset$samples)) {
     append_log("Dataset does not contain a sample metadata table (dataset$samples)", type = "error")
@@ -684,6 +784,15 @@ add_contrast = function(dataset, colname_condition_variable, values_condition1, 
     append_log('The sample metadata column provided in parameter colname_condition_variable must contain character values and not any NA or empty strings', type = "error")
   }
 
+  model_terms = validate_model_terms(dataset, fixed_variables = fixed_variables, random_variables = random_variables, block_variable = block_variable)
+  fixed_variables = model_terms$fixed_variables
+  random_variables = model_terms$random_variables
+  block_variable = model_terms$block_variable
+  colname_additional_variables = fixed_variables
+  if(colname_condition_variable %in% c(fixed_variables, random_variables, block_variable)) {
+    append_log("Model term parameters must not overlap with colname_condition_variable", type = "error")
+  }
+
   # validate additional variables colnames
   if(!is.null(colname_additional_variables)) {
     if(anyNA(colname_additional_variables) || !is.character(colname_additional_variables) || any(colname_additional_variables %in% c("", "condition")) || anyDuplicated(colname_additional_variables)) {
@@ -706,7 +815,7 @@ add_contrast = function(dataset, colname_condition_variable, values_condition1, 
   samples = dataset$samples %>%
     filter(exclude == FALSE) %>%
     # importantly, select relevant regression variable columns **in order of priority** (with sample identifiers in front)
-    select(sample_id, condition = !!as.symbol(colname_condition_variable), tidyselect::all_of(colname_additional_variables))
+    select(sample_id, condition = !!as.symbol(colname_condition_variable), tidyselect::all_of(unique(c(colname_additional_variables, random_variables, block_variable))))
 
   # validate
   if(length(values_condition1) == 0 || anyNA(values_condition1) || !is.character(values_condition1) || any(values_condition1 == "" | !values_condition1 %in% unique(samples$condition)) || anyDuplicated(values_condition1)) {
@@ -743,12 +852,15 @@ add_contrast = function(dataset, colname_condition_variable, values_condition1, 
   samples = enforce_sample_value_types(samples, redundant_columns = "error", show_log = TRUE)
 
   # check that each variable has condition-unique values
-  for(col in colname_additional_variables) {
+  for(col in unique(c(fixed_variables, random_variables))) {
     y = samples %>% pull(!!col)
     if(n_distinct(y[samples$condition == 1L]) == 1 && n_distinct(y[samples$condition == 2L]) == 1) {
-      append_log(paste0('"Invalid regression variable "', col, '" has no unique values in either condition  (solution: remove it from the colname_additional_variables parameter for the current contrast)'), type = "error")
+      append_log(paste0('"Invalid model term "', col, '" has no unique values in either condition (solution: remove it from the current contrast definition)'), type = "error")
     }
   }
+
+  block_vector = validate_block_vector(samples, block_variable = block_variable)
+  model_formula = paste(unique(c("condition", fixed_variables)), collapse = " + ")
 
   # compose label
   lbl_contrast = sprintf(
@@ -763,7 +875,13 @@ add_contrast = function(dataset, colname_condition_variable, values_condition1, 
     colname_condition_variable
   )
   if(length(colname_additional_variables) > 0) {
-    lbl = paste0(lbl, " # additional_variables: ", paste(colname_additional_variables, collapse=","))
+    lbl = paste0(lbl, " # fixed_variables: ", paste(colname_additional_variables, collapse=","))
+  }
+  if(length(random_variables) > 0) {
+    lbl = paste0(lbl, " # random_variables: ", paste(random_variables, collapse=","))
+  }
+  if(!is.null(block_variable)) {
+    lbl = paste0(lbl, " # block_variable: ", block_variable)
   }
 
   lbl = sub(" *$", "", lbl) # trim trailing whitespace
@@ -786,13 +904,17 @@ add_contrast = function(dataset, colname_condition_variable, values_condition1, 
       label_contrast = lbl_contrast,
       colname_condition_variable = colname_condition_variable,
       colname_additional_variables = colname_additional_variables,
+      fixed_variables = fixed_variables,
+      random_variables = random_variables,
+      block_variable = block_variable,
+      block_vector = block_vector,
       values_condition1 = values_condition1,
       values_condition2 = values_condition2,
       sampleid_condition1 = samples %>% filter(condition == 1) %>% pull(sample_id),
       sampleid_condition2 = samples %>% filter(condition == 2) %>% pull(sample_id),
       # the samples table is essential: we've added a 'condition' column and included additional variables relevant for the (user-specified) linear regression
       sample_table = samples,
-      model_matrix = stats::model.matrix(~ . , data = samples %>% select(-sample_id)),
+      model_matrix = stats::model.matrix(stats::as.formula(paste0("~ ", model_formula)), data = samples %>% select(-sample_id)),
       # in the way the samples table is currently constructed,
       # we'd always need the "condition" regression variable as our main result
       regression_coefficient_name = "condition"
@@ -891,7 +1013,9 @@ enforce_sample_value_types = function(samples, redundant_columns = "error", show
 #'
 #' @param dataset your dataset. Make sure you've already imported sample metadata (so each sample is assigned to a sample group)
 #' @param contrast_list a list that captures all contrasts that you want to compare. Check the examples for details.
-#' @param random_variables a vector of column names in your sample metadata table that are added as additional(!) regression terms in each statistical contrast tested downstream. Note that not all DEA algorithms may support this, consult documentation on individual methods for more info (start at `dea_algorithms()` )
+#' @param fixed_variables a vector of sample metadata columns added as fixed-effect terms to limma-style design matrices
+#' @param random_variables a vector of sample metadata columns used as random-effect terms for MSqRob / MSqRobSum
+#' @param block_variable optional single sample metadata column used as block variable for limma-style models
 #'
 #' @examples
 #' # a simple wild-type knockout study with only 2 groups, WT and KO
@@ -906,7 +1030,7 @@ enforce_sample_value_types = function(samples, redundant_columns = "error", show
 #' }
 #'
 #' @export
-setup_contrasts = function(dataset, contrast_list, random_variables = NULL) {
+setup_contrasts = function(dataset, contrast_list, fixed_variables = character(0), random_variables = character(0), block_variable = NULL) {
   if(!"samples" %in% names(dataset) || !is.data.frame(dataset$samples) || length(dataset$samples) == 0) {
     append_log("sample metadata table ('samples') is missing from the dataset. Run import_sample_metadata() prior to this function.", type = "error")
   }
@@ -921,7 +1045,7 @@ setup_contrasts = function(dataset, contrast_list, random_variables = NULL) {
   }
   dataset = remove_contrasts(dataset)
 
-  random_variables = unique(random_variables)
+  model_terms = validate_model_terms(dataset, fixed_variables = fixed_variables, random_variables = random_variables, block_variable = block_variable)
 
   for(index in seq_along(contrast_list)) {
     contr = contrast_list[[index]]
@@ -929,7 +1053,15 @@ setup_contrasts = function(dataset, contrast_list, random_variables = NULL) {
       append_log("each contrast should be a list with 2 elements (each is a non-empty array of sample group names)", type = "error")
     }
 
-    dataset = add_contrast(dataset, colname_condition_variable = "group", values_condition1 = contr[[1]], values_condition2 = contr[[2]], colname_additional_variables = random_variables)
+    dataset = add_contrast(
+      dataset,
+      colname_condition_variable = "group",
+      values_condition1 = contr[[1]],
+      values_condition2 = contr[[2]],
+      fixed_variables = model_terms$fixed_variables,
+      random_variables = model_terms$random_variables,
+      block_variable = model_terms$block_variable
+    )
   }
 
   return(dataset)

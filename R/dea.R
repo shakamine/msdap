@@ -253,22 +253,22 @@ dea = function(dataset, qval_signif = 0.01, fc_signif = 0, dea_algorithm = "deqm
         alg_result = NULL
         alg_plugin = FALSE
         if(alg == "ebayes") {
-          alg_result = de_ebayes(eset = eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name)
+          alg_result = de_ebayes(eset = eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, limma_block_vector = contr$block_vector)
         } else if(alg == "deqms") {
-          alg_result = de_deqms(eset = eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name)
+          alg_result = de_deqms(eset = eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, limma_block_vector = contr$block_vector)
         } else if(alg == "msempire") {
           # ! compared to the other dea algorithms, MS-EmpiRe is not a regression model so we cannot add random variables
           alg_result = de_msempire(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name)
         } else if(alg == "msqrob") {
-          alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = TRUE, random_variables = contr$colname_additional_variables)
+          alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = TRUE, random_variables = contr$random_variables)
         } else if(alg == "msqrobsum") {
-          alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = FALSE, random_variables = contr$colname_additional_variables)
+          alg_result = de_msqrobsum_msqrob(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, use_peptide_model = FALSE, random_variables = contr$random_variables)
         } else if(alg == "limpa") {
           alg_result = de_limpa(eset = eset_peptides, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name)
         } else {
           # for non-hardcoded functions, we call the function requested as a user parameter and pass all available data
           alg_fun = match.fun(alg) # throws error if not found
-          alg_result = alg_fun(peptides=peptides_for_contrast, samples=samples_for_contrast, eset_peptides=eset_peptides, eset_proteins=eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, random_variables = contr$colname_additional_variables, dataset_name=dataset$name)
+          alg_result = alg_fun(peptides=peptides_for_contrast, samples=samples_for_contrast, eset_peptides=eset_peptides, eset_proteins=eset_proteins, model_matrix = contr$model_matrix, model_matrix_result_prop = contr$regression_coefficient_name, random_variables = contr$random_variables, dataset_name=dataset$name)
           alg_plugin = TRUE
         }
 
